@@ -10,49 +10,47 @@ app = FastAPI()
 # Get port from environment variable (for Railway)
 port = int(os.environ.get("PORT", 8000))
 
-# Function to safely load model files
-def load_model_files(model_prefix):
+# Function to safely encode categorical variables
+def safe_transform(encoder, value, feature_name):
     try:
-        base_path = Path("models")
-        files = {
-            "model": joblib.load(base_path / f"{model_prefix}_model.pkl"),
-            "scaler": joblib.load(base_path / f"{model_prefix}_scaler.pkl"),
-            "le_gender": joblib.load(base_path / f"{model_prefix}_le_gender.pkl"),
-            "le_smoking": joblib.load(base_path / f"{model_prefix}_le_smoking.pkl"),
-            "features": joblib.load(base_path / f"{model_prefix}_features.pkl")
-        }
-        if model_prefix == "cancer":
-            files.update({
-                "le_genetic_risk": joblib.load(base_path / "cancer_le_genetic_risk.pkl"),
-                "le_activity": joblib.load(base_path / "cancer_le_activity.pkl"),
-                "le_alcohol": joblib.load(base_path / "cancer_le_alcohol.pkl"),
-                "le_cancer_history": joblib.load(base_path / "cancer_le_cancer_history.pkl")
-            })
-        return files
+        return encoder.transform([value])[0]
+    except ValueError:
+        valid_values = encoder.classes_.tolist()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid value for {feature_name}. Valid values are: {valid_values}"
+        )
+
+# Function to safely load model files
+def load_model_files(model_path: Path):
+    try:
+        return joblib.load(model_path)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading {model_prefix} model files: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error loading model file {model_path.name}: {str(e)}"
+        )
 
-# Load model files
-diabetes_files = load_model_files("diabetes")
-cancer_files = load_model_files("cancer")
+# Load all model files
+models_path = Path("models")
 
-# Extract models and preprocessing tools
-diabetes_model = diabetes_files["model"]
-diabetes_scaler = diabetes_files["scaler"]
-diabetes_le_gender = diabetes_files["le_gender"]
-diabetes_le_smoking = diabetes_files["le_smoking"]
-diabetes_features = diabetes_files["features"]
+# Load diabetes model files
+diabetes_model = load_model_files(models_path / "diabetes_model.pkl")
+diabetes_scaler = load_model_files(models_path / "diabetes_scaler.pkl")
+diabetes_le_gender = load_model_files(models_path / "diabetes_le_gender.pkl")
+diabetes_le_smoking = load_model_files(models_path / "diabetes_le_smoking.pkl")
+diabetes_features = load_model_files(models_path / "diabetes_features.pkl")
 
-cancer_model = cancer_files["model"]
-cancer_scaler = cancer_files["scaler"]
-cancer_le_gender = cancer_files["le_gender"]
-cancer_le_smoking = cancer_files["le_smoking"]
-cancer_le_genetic_risk = cancer_files["le_genetic_risk"]
-cancer_le_activity = cancer_files["le_activity"]
-cancer_le_alcohol = cancer_files["le_alcohol"]
-cancer_le_cancer_history = cancer_files["le_cancer_history"]
-cancer_features = cancer_files["features"]
-
+# Load cancer model files
+cancer_model = load_model_files(models_path / "cancer_model.pkl")
+cancer_scaler = load_model_files(models_path / "cancer_scaler.pkl")
+cancer_le_gender = load_model_files(models_path / "cancer_le_gender.pkl")
+cancer_le_smoking = load_model_files(models_path / "cancer_le_smoking.pkl")
+cancer_le_genetic_risk = load_model_files(models_path / "cancer_le_genetic_risk.pkl")
+cancer_le_activity = load_model_files(models_path / "cancer_le_activity.pkl")
+cancer_le_alcohol = load_model_files(models_path / "cancer_le_alcohol.pkl")
+cancer_le_cancer_history = load_model_files(models_path / "cancer_le_cancer_history.pkl")
+cancer_features = load_model_files(models_path / "cancer_features.pkl")
 
 # Request Model for Diabetes Prediction
 class DiabetesRequest(BaseModel):
@@ -65,25 +63,28 @@ class DiabetesRequest(BaseModel):
     HbA1c_level: float
     blood_glucose_level: float
 
-
 @app.post("/predict/diabetes")
 def predict_diabetes(data: DiabetesRequest):
-    # Encode categorical variables
-    gender_encoded = diabetes_le_gender.transform([data.gender])[0]
-    smoking_encoded = diabetes_le_smoking.transform([data.smoking_history])[0]
+    try:
+        # Encode categorical variables with validation
+        gender_encoded = safe_transform(diabetes_le_gender, data.gender, "gender")
+        smoking_encoded = safe_transform(diabetes_le_smoking, data.smoking_history, "smoking_history")
 
-    # Create input array
-    input_data = np.array([[gender_encoded, data.age, data.hypertension, data.heart_disease, 
-                             smoking_encoded, data.bmi, data.HbA1c_level, data.blood_glucose_level]])
+        # Create input array
+        input_data = np.array([[gender_encoded, data.age, data.hypertension, data.heart_disease, 
+                               smoking_encoded, data.bmi, data.HbA1c_level, data.blood_glucose_level]])
 
-    # Scale numerical features
-    input_scaled = diabetes_scaler.transform(input_data)
+        # Scale numerical features
+        input_scaled = diabetes_scaler.transform(input_data)
 
-    # Predict
-    prediction = diabetes_model.predict(input_scaled)[0]
+        # Predict
+        prediction = diabetes_model.predict(input_scaled)[0]
 
-    return {"diabetes_prediction": int(prediction)}
-
+        return {"diabetes_prediction": int(prediction)}
+    except Exception as e:
+        if not isinstance(e, HTTPException):
+            raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
+        raise
 
 # Request Model for Cancer Prediction
 class CancerRequest(BaseModel):
@@ -96,29 +97,32 @@ class CancerRequest(BaseModel):
     AlcoholIntake: str
     CancerHistory: str
 
-
 @app.post("/predict/cancer")
 def predict_cancer(data: CancerRequest):
-    # Encode categorical variables
-    gender_encoded = cancer_le_gender.transform([data.Gender])[0]
-    smoking_encoded = cancer_le_smoking.transform([data.Smoking])[0]
-    genetic_risk_encoded = cancer_le_genetic_risk.transform([data.GeneticRisk])[0]
-    activity_encoded = cancer_le_activity.transform([data.PhysicalActivity])[0]
-    alcohol_encoded = cancer_le_alcohol.transform([data.AlcoholIntake])[0]
-    cancer_history_encoded = cancer_le_cancer_history.transform([data.CancerHistory])[0]
+    try:
+        # Encode categorical variables with validation
+        gender_encoded = safe_transform(cancer_le_gender, data.Gender, "Gender")
+        smoking_encoded = safe_transform(cancer_le_smoking, data.Smoking, "Smoking")
+        genetic_risk_encoded = safe_transform(cancer_le_genetic_risk, data.GeneticRisk, "GeneticRisk")
+        activity_encoded = safe_transform(cancer_le_activity, data.PhysicalActivity, "PhysicalActivity")
+        alcohol_encoded = safe_transform(cancer_le_alcohol, data.AlcoholIntake, "AlcoholIntake")
+        cancer_history_encoded = safe_transform(cancer_le_cancer_history, data.CancerHistory, "CancerHistory")
 
-    # Create input array
-    input_data = np.array([[gender_encoded, data.Age, data.BMI, smoking_encoded, 
-                             genetic_risk_encoded, activity_encoded, alcohol_encoded, cancer_history_encoded]])
+        # Create input array
+        input_data = np.array([[gender_encoded, data.Age, data.BMI, smoking_encoded, 
+                               genetic_risk_encoded, activity_encoded, alcohol_encoded, cancer_history_encoded]])
 
-    # Scale numerical features
-    input_scaled = cancer_scaler.transform(input_data)
+        # Scale numerical features
+        input_scaled = cancer_scaler.transform(input_data)
 
-    # Predict
-    prediction = cancer_model.predict(input_scaled)[0]
+        # Predict
+        prediction = cancer_model.predict(input_scaled)[0]
 
-    return {"cancer_prediction": int(prediction)}
-
+        return {"cancer_prediction": int(prediction)}
+    except Exception as e:
+        if not isinstance(e, HTTPException):
+            raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
+        raise
 
 # Root Endpoint
 @app.get("/")
