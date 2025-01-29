@@ -6,22 +6,22 @@ import numpy as np
 app = FastAPI()
 
 # Load Diabetes Model & Preprocessing Tools
-diabetes_model = joblib.load("back/models/diabetes_model.pkl")
-diabetes_scaler = joblib.load("back/models/diabetes_scaler.pkl")
-diabetes_le_gender = joblib.load("back/models/diabetes_le_gender.pkl")
-diabetes_le_smoking = joblib.load("back/models/diabetes_le_smoking.pkl")
-diabetes_features = joblib.load("back/models/diabetes_features.pkl")
+diabetes_model = joblib.load("models/diabetes_model.pkl")
+diabetes_scaler = joblib.load("models/diabetes_scaler.pkl")
+diabetes_le_gender = joblib.load("models/diabetes_le_gender.pkl")
+diabetes_le_smoking = joblib.load("models/diabetes_le_smoking.pkl")
+diabetes_features = joblib.load("models/diabetes_features.pkl")
 
 # Load Cancer Model & Preprocessing Tools
-cancer_model = joblib.load("back/models/cancer_model.pkl")
-cancer_scaler = joblib.load("back/models/cancer_scaler.pkl")
-cancer_le_gender = joblib.load("back/models/cancer_le_gender.pkl")
-cancer_le_smoking = joblib.load("back/models/cancer_le_smoking.pkl")
-cancer_le_genetic_risk = joblib.load("back/models/cancer_le_genetic_risk.pkl")
-cancer_le_activity = joblib.load("back/models/cancer_le_activity.pkl")
-cancer_le_alcohol = joblib.load("back/models/cancer_le_alcohol.pkl")
-cancer_le_cancer_history = joblib.load("back/models/cancer_le_cancer_history.pkl")
-cancer_features = joblib.load("back/models/cancer_features.pkl")
+cancer_model = joblib.load("models/cancer_model.pkl")
+cancer_scaler = joblib.load("models/cancer_scaler.pkl")
+cancer_le_gender = joblib.load("models/cancer_le_gender.pkl")
+cancer_le_smoking = joblib.load("models/cancer_le_smoking.pkl")
+cancer_le_genetic_risk = joblib.load("models/cancer_le_genetic_risk.pkl")
+cancer_le_activity = joblib.load("models/cancer_le_activity.pkl")
+cancer_le_alcohol = joblib.load("models/cancer_le_alcohol.pkl")
+cancer_le_cancer_history = joblib.load("models/cancer_le_cancer_history.pkl")
+cancer_features = joblib.load("models/cancer_features.pkl")
 
 
 # Request Model for Diabetes Prediction
