@@ -1,27 +1,57 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import joblib
 import numpy as np
+import os
+from pathlib import Path
 
 app = FastAPI()
 
-# Load Diabetes Model & Preprocessing Tools
-diabetes_model = joblib.load("models/diabetes_model.pkl")
-diabetes_scaler = joblib.load("models/diabetes_scaler.pkl")
-diabetes_le_gender = joblib.load("models/diabetes_le_gender.pkl")
-diabetes_le_smoking = joblib.load("models/diabetes_le_smoking.pkl")
-diabetes_features = joblib.load("models/diabetes_features.pkl")
+# Get port from environment variable (for Railway)
+port = int(os.environ.get("PORT", 8000))
 
-# Load Cancer Model & Preprocessing Tools
-cancer_model = joblib.load("models/cancer_model.pkl")
-cancer_scaler = joblib.load("models/cancer_scaler.pkl")
-cancer_le_gender = joblib.load("models/cancer_le_gender.pkl")
-cancer_le_smoking = joblib.load("models/cancer_le_smoking.pkl")
-cancer_le_genetic_risk = joblib.load("models/cancer_le_genetic_risk.pkl")
-cancer_le_activity = joblib.load("models/cancer_le_activity.pkl")
-cancer_le_alcohol = joblib.load("models/cancer_le_alcohol.pkl")
-cancer_le_cancer_history = joblib.load("models/cancer_le_cancer_history.pkl")
-cancer_features = joblib.load("models/cancer_features.pkl")
+# Function to safely load model files
+def load_model_files(model_prefix):
+    try:
+        base_path = Path("models")
+        files = {
+            "model": joblib.load(base_path / f"{model_prefix}_model.pkl"),
+            "scaler": joblib.load(base_path / f"{model_prefix}_scaler.pkl"),
+            "le_gender": joblib.load(base_path / f"{model_prefix}_le_gender.pkl"),
+            "le_smoking": joblib.load(base_path / f"{model_prefix}_le_smoking.pkl"),
+            "features": joblib.load(base_path / f"{model_prefix}_features.pkl")
+        }
+        if model_prefix == "cancer":
+            files.update({
+                "le_genetic_risk": joblib.load(base_path / "cancer_le_genetic_risk.pkl"),
+                "le_activity": joblib.load(base_path / "cancer_le_activity.pkl"),
+                "le_alcohol": joblib.load(base_path / "cancer_le_alcohol.pkl"),
+                "le_cancer_history": joblib.load(base_path / "cancer_le_cancer_history.pkl")
+            })
+        return files
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading {model_prefix} model files: {str(e)}")
+
+# Load model files
+diabetes_files = load_model_files("diabetes")
+cancer_files = load_model_files("cancer")
+
+# Extract models and preprocessing tools
+diabetes_model = diabetes_files["model"]
+diabetes_scaler = diabetes_files["scaler"]
+diabetes_le_gender = diabetes_files["le_gender"]
+diabetes_le_smoking = diabetes_files["le_smoking"]
+diabetes_features = diabetes_files["features"]
+
+cancer_model = cancer_files["model"]
+cancer_scaler = cancer_files["scaler"]
+cancer_le_gender = cancer_files["le_gender"]
+cancer_le_smoking = cancer_files["le_smoking"]
+cancer_le_genetic_risk = cancer_files["le_genetic_risk"]
+cancer_le_activity = cancer_files["le_activity"]
+cancer_le_alcohol = cancer_files["le_alcohol"]
+cancer_le_cancer_history = cancer_files["le_cancer_history"]
+cancer_features = cancer_files["features"]
 
 
 # Request Model for Diabetes Prediction
