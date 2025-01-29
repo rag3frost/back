@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
 
 # Load dataset
-df = pd.read_csv("back/dataset/diabetes_prediction_dataset.csv")
+df = pd.read_csv("dataset/diabetes_prediction_dataset.csv")
 
 # Define feature columns
 feature_columns = [
